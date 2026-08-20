@@ -51,3 +51,45 @@ require("lazy").setup({
     },
   },
 })
+
+-- GraphQL Language Server (lê o graphql.config.cjs automaticamente)
+-- Mesmo motor da extensão do VS Code: autocomplete / validação / hover.
+-- Instalação automática via npm (inclui o `graphql` para não dar exit 1).
+do
+  local lsp_dir = vim.env.HOME .. "/.local/share/graphql-lsp"
+  local bin = lsp_dir .. "/node_modules/.bin/graphql-lsp"
+
+  vim.lsp.config("graphql", {
+    cmd = { bin, "server", "-m", "stream" },
+    filetypes = { "graphql", "typescript", "typescriptreact", "javascript", "javascriptreact" },
+    root_markers = {
+      "graphql.config.cjs", "graphql.config.js", "graphql.config.ts", "graphql.config.json",
+      ".graphqlrc", ".graphqlrc.cjs", ".graphqlrc.json", "package.json",
+    },
+  })
+
+  local function enable()
+    vim.lsp.enable("graphql")
+  end
+
+  if vim.uv.fs_stat(bin) then
+    enable() -- já instalado: só habilita
+  else
+    vim.notify("[graphql] Instalando GraphQL Language Server via npm...", vim.log.levels.INFO)
+    vim.system(
+      { "sh", "-c", "mkdir -p " .. lsp_dir .. " && cd " .. lsp_dir .. " && npm install graphql-language-service-cli graphql@16" },
+      { text = true },
+      function(res)
+        if res.code == 0 and vim.uv.fs_stat(bin) then
+          vim.schedule(enable)
+          vim.notify("[graphql] Language Server instalado com sucesso.", vim.log.levels.INFO)
+        else
+          vim.notify("[graphql] Falha ao instalar o GraphQL LSP:\n" .. (res.stderr or ""), vim.log.levels.ERROR)
+        end
+      end
+    )
+  end
+end
+
+-- garante que arquivos .gql abram com o filetype correto (graphql)
+vim.filetype.add({ extension = { gql = "graphql" } })
